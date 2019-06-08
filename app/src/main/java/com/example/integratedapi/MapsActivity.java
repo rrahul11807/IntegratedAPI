@@ -28,6 +28,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import org.json.JSONArray;
@@ -37,8 +38,9 @@ import org.json.JSONObject;
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
-    Location currentLocation;
     private static final int REQUEST_LOCATION = 99;
+    MarkerOptions mo=new MarkerOptions();
+    Marker m=null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -50,22 +52,30 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        final TextView textView = (TextView) findViewById(R.id.text);
         RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
-        String url="https://anapioficeandfire.com/api/characters/583";
+
+        String url="https://api.opencagedata.com/geocode/v1/json?q=countdown&key="+getString(R.string.api_key)+"&language=en&pretty=1";
+
         JsonObjectRequest jsObjRequest = new JsonObjectRequest(Request.Method.GET, url, null, new Response.Listener<JSONObject>()
         {
             @Override
             public void onResponse(JSONObject response)
             {
-                StringBuilder localities = new StringBuilder();
                 try
                 {
-                    JSONArray data = response.getJSONArray("aliases");
-                    localities.append("Aliases"+"\n\n");
+                    JSONArray data = response.getJSONArray("results");
+
                     for (int index = 0; index < data.length(); index++)
                     {
-                        localities.append(data.get(index) + "\n");
+                        JSONObject result = data.getJSONObject(index);
+                        JSONObject geometry = result.getJSONObject("geometry");
+                        LatLng cl = new LatLng(Double.parseDouble(geometry.getString("lat")), Double.parseDouble(geometry.getString("lng")));
+
+
+                        mo.position(cl).title("CountDown");
+                        m = mMap.addMarker(mo);
+                        mMap.moveCamera(CameraUpdateFactory.newLatLng(cl));
+                        mMap.resetMinMaxZoomPreference();
                     }
                     System.err.println(data);
                 }
@@ -73,7 +83,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 {
                     e.printStackTrace();
                 }
-                textView.setText(localities.toString());
+
             }
         },
                 new Response.ErrorListener()
@@ -81,32 +91,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     @Override
                     public void onErrorResponse(VolleyError error)
                     {
-                        textView.setText("That did not work!");
+                        //textView.setText("That did not work!");
                     }
                 });
         queue.add(jsObjRequest);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    final FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(this);
-
-
-        LocationRequest req = new LocationRequest();
-        req.setInterval(10000); // 6000 seconds
-        req.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
         // Here, thisActivity is the current activity
         if (ContextCompat.checkSelfPermission(this,
@@ -131,26 +120,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 // app-defined int constant. The callback method gets the
                 // result of the request.
             }
-        } else {
-            // Permission has already been granted
-
-            client.requestLocationUpdates(req, new LocationCallback() {
-                @Override
-                public void onLocationResult(LocationResult locationResult) {
-                    Log.e("location:", locationResult.getLastLocation().toString());
-
-                    Toast.makeText(MapsActivity.this, locationResult.getLastLocation().toString(), Toast.LENGTH_LONG).show();
-                    // Add a marker in Sydney and move the camera
-                    LatLng clocation = new LatLng(locationResult.getLastLocation().getLatitude(), locationResult.getLastLocation().getLongitude());
-                    mMap.clear();
-                    mMap.addMarker(new MarkerOptions().position(clocation).title("Current Location"));
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(clocation,18f));
-
-
-                }
-            }, null);
-
-
         }
     }
 
